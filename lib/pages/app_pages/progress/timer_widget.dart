@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 
 class TimerWidget extends StatefulWidget {
   final double fontSize;
-  const TimerWidget({super.key, required this.fontSize});
+  final int millisecondsPassed;
+  const TimerWidget({super.key, required this.fontSize, required this.millisecondsPassed});
   @override
   State<TimerWidget> createState() => _TimerWidgetState();
 }
@@ -16,6 +17,8 @@ class _TimerWidgetState extends State<TimerWidget> {
   @override
   void initState() {
     super.initState();
+    _elapsedMilliseconds = widget.millisecondsPassed;
+    print(widget.millisecondsPassed);
     _timer = Timer.periodic(const Duration(milliseconds: 10), (Timer t) {
       _updateTime();
     });

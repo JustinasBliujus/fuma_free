@@ -1,4 +1,6 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:fuma_free/firebase_options.dart';
 import 'package:fuma_free/pages/app_pages/progress/progress.dart';
 import 'package:fuma_free/pages/app_pages/money_goals/money_goals.dart';
 import 'package:fuma_free/pages/app_pages/diary/diary.dart';
@@ -14,7 +16,11 @@ import 'package:fuma_free/assets/money_goals_constants.dart';
 import 'package:fuma_free/assets/progress_constants.dart';
 import 'package:fuma_free/assets/button_constants.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const MyApp());
 }
 

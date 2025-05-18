@@ -6,7 +6,7 @@ class ProgressStrings {
   static const String quarter_1 = "Cigarettes avoided";
   static const String quarter_2 = "Money Saved";
   static const String quarter_3 = "Life Expectancy Improved";
-  static const String quarter_4 = "Left Till Record";
+  static const String quarter_4 = "Your Personal Best";
 
   static const String explanation_1 = "All Time Statistics";
 

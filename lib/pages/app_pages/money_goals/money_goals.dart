@@ -1,9 +1,13 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fuma_free/pages/app_pages/money_goals/goal.dart';
 import 'package:fuma_free/pages/app_pages/money_goals/planCard.dart';
 import 'package:fuma_free/assets/money_goals_constants.dart';
 import 'package:fuma_free/assets/global/colours.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:fuma_free/assets/calculations.dart';
+import 'package:fuma_free/database_service.dart';
 
 class MoneyGoals extends StatefulWidget {
   const MoneyGoals({super.key});
@@ -13,17 +17,56 @@ class MoneyGoals extends StatefulWidget {
 }
 
 class _MoneyGoalsState extends State<MoneyGoals> {
-  final List<Goal> _goals = [
-    Goal(title: "Goal 1", textLine: "textlineone", progressValue: 1),
-    Goal(title: "Goal 2", textLine: "textlinetwo", progressValue: 0.6),
-    Goal(title: "Goal 3", textLine: "textlinethree", progressValue: 0.3),
-    Goal(title: "Goal 4", textLine: "textlinefour", progressValue: 0.7),
-  ];
+  final TextEditingController titleController = TextEditingController();
+  final TextEditingController amountController = TextEditingController();
+
+  final List<Map<String, dynamic>> _goals = [];
+  Map<dynamic, dynamic> userData = {};
+  double moneySaved = 0;
+  DateTime? lastSmoke;
+  DateTime? initiationDate;
+  @override
+  void initState() {
+    super.initState();
+    _loadGoals();
+  }
+
+  void _loadGoals() async {
+    final ref = FirebaseDatabase.instance.ref('userGoals');
+    final snapshot = await ref.get();
+    DataSnapshot? snapshott = await DatabaseService().read(path: 'userData');
+
+    if (snapshot.exists) {
+      final data = snapshot.value as Map<dynamic, dynamic>;
+      userData = jsonDecode(snapshott?.value as String);
+      setState(() {
+        lastSmoke = DateTime.tryParse(userData['lastSmoke']);
+        if (userData['initiationDate'] != null) {
+          initiationDate = DateTime.tryParse(userData['initiationDate']);
+        }
+        moneySaved = calculateCurrentMoneySaved(
+          lastSmoke!,
+          userData['cigsPerDay'],
+          userData['costPerPack'],
+          userData['cigsPerPack'],
+          initiationDate!,
+          userData['relapseTimes'],
+        );
+        _goals.clear();
+        data.forEach((key, value) {
+          _goals.add({
+            'key': key,
+            'goal': Goal(
+              title: value['title'] ?? '',
+              textLine: value['amount'] ?? '',
+            ),
+          });
+        });
+      });
+    }
+  }
 
   void _showAddGoalDialog() {
-    final TextEditingController titleController = TextEditingController();
-    final TextEditingController descController = TextEditingController();
-
     showDialog(
       barrierColor: AppColors.primary.withOpacity(0.2),
       context: context,
@@ -38,13 +81,13 @@ class _MoneyGoalsState extends State<MoneyGoals> {
                 decoration: const InputDecoration(labelText: MoneyGoalsStrings.placeholder_1),
               ),
               TextField(
-                controller: descController,
+                controller: amountController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
                 ],
                 decoration: const InputDecoration(labelText: MoneyGoalsStrings.placeholder_2),
-              )
+              ),
             ],
           ),
           actions: [
@@ -53,18 +96,34 @@ class _MoneyGoalsState extends State<MoneyGoals> {
                 backgroundColor: WidgetStateProperty.all<Color>(AppColors.primary),
                 foregroundColor: WidgetStateProperty.all<Color>(AppColors.textSecondary),
               ),
-              onPressed: () {
+              onPressed: () async {
                 final title = titleController.text.trim();
-                final desc = descController.text.trim();
-                if (title.isNotEmpty && desc.isNotEmpty) {
-                  setState(() {
-                    _goals.add(Goal(
-                      title: title,
-                      textLine: desc,
-                      progressValue: 0,
-                    ));
-                  });
-                  Navigator.of(context).pop();
+                final amount = amountController.text.trim();
+
+                if (title.isNotEmpty && amount.isNotEmpty) {
+                  try {
+                    final goalRef = FirebaseDatabase.instance.ref().child('userGoals').push();
+                    await goalRef.set({
+                      'title': title,
+                      'amount': amount,
+                    });
+
+                    setState(() {
+                      _goals.add({
+                        'key': goalRef.key,
+                        'goal': Goal(title: title, textLine: amount),
+                      });
+                    });
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Goal saved to Firebase!")),
+                    );
+                    Navigator.of(context).pop();
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text("Error saving goal: $e")),
+                    );
+                  }
                 }
               },
               child: const Text(MoneyGoalsStrings.addButton),
@@ -75,9 +134,28 @@ class _MoneyGoalsState extends State<MoneyGoals> {
     );
   }
 
+  void _deleteGoal(String key, int index) async {
+    try {
+      await FirebaseDatabase.instance.ref('userGoals/$key').remove();
+
+      setState(() {
+        _goals.removeAt(index);
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Goal deleted")),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to delete: $e")),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     bool isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
+
     return Scaffold(
       floatingActionButton: FloatingActionButton(
         foregroundColor: AppColors.textSecondary,
@@ -88,9 +166,9 @@ class _MoneyGoalsState extends State<MoneyGoals> {
       body: Column(
         children: [
           const SizedBox(height: 15),
-          const Text(
-            MoneyGoalsStrings.headline,
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          Text(
+            "${MoneyGoalsStrings.headline} ${moneySaved.toStringAsFixed(2)} money",
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
           const Divider(
             height: 30,
@@ -104,16 +182,20 @@ class _MoneyGoalsState extends State<MoneyGoals> {
                 ? ListView(
               children: _goals.asMap().entries.map((entry) {
                 final index = entry.key;
-                final goal = entry.value;
+                final goalMap = entry.value;
+                final key = goalMap['key'];
+                final goal = goalMap['goal'] as Goal;
+
+                final goalAmount = double.tryParse(goal.textLine);
+                final progressValue = (goalAmount != null && goalAmount > 0)
+                    ? (moneySaved / goalAmount).clamp(0.0, 1.0)
+                    : 0.0;
+
                 return PlanCard(
                   title: goal.title,
-                  textLine: goal.textLine,
-                  progressValue: goal.progressValue,
-                  onDelete: () {
-                    setState(() {
-                      _goals.removeAt(index);
-                    });
-                  },
+                  textLine: "${goal.textLine} money",
+                  progressValue: progressValue,
+                  onDelete: () => _deleteGoal(key, index),
                 );
               }).toList(),
             )
@@ -125,16 +207,20 @@ class _MoneyGoalsState extends State<MoneyGoals> {
               childAspectRatio: 3 / 2,
               children: _goals.asMap().entries.map((entry) {
                 final index = entry.key;
-                final goal = entry.value;
+                final goalMap = entry.value;
+                final key = goalMap['key'];
+                final goal = goalMap['goal'] as Goal;
+
+                final goalAmount = double.tryParse(goal.textLine);
+                final progressValue = (goalAmount != null && goalAmount > 0)
+                    ? (moneySaved / goalAmount).clamp(0.0, 1.0)
+                    : 0.0;
+
                 return PlanCard(
                   title: goal.title,
-                  textLine: goal.textLine,
-                  progressValue: goal.progressValue,
-                  onDelete: () {
-                    setState(() {
-                      _goals.removeAt(index);
-                    });
-                  },
+                  textLine: "${goal.textLine} money",
+                  progressValue: progressValue,
+                  onDelete: () => _deleteGoal(key, index),
                 );
               }).toList(),
             ),
