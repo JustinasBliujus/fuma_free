@@ -12,7 +12,7 @@ A Flutter app with Firebase integration, developed as part of a **Mobile Program
 
 - Incomplete logic and inconsistent behavior across features  
 - Inefficient Firebase usage with redundant calls  
-- Authentication and per-user data separation not implemented  
+- Authentication and per-user data separation as well as onboarding not implemented  
 - No error handling for database connection failures  
 - UI may overflow with large datasets or long text entries  
 
