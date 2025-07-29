@@ -1,16 +1,15 @@
 # fuma_free
 
-A new Flutter project.
+A flutter project with firebase integration for mobile programming course in university
 
-## Getting Started
+# Application stage
 
-This project is a starting point for a Flutter application.
+The application is unfinished because:
+- There are logic and consistency problems
+- Firebase is used inefficiently with unnecesary calls
+- Authentication and user separation is not implemented
+- Lacking error handling when database is unreachable
 
-A few resources to get you started if this is your first Flutter project:
+## Walkthrough
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
